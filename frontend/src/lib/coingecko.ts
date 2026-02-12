@@ -20,42 +20,48 @@ export interface CryptoData {
   market_cap: number;
   total_volume: number;
   market_cap_rank: number;
-  sparkline_in_7d?: number[];
+  sparkline_in_7d?: { price: number[] };
 }
 
-// Top cryptocurrencies to track
-export const TRACKED_COINS = [
-  "bitcoin",
-  "ethereum",
-  "binancecoin",
-  "solana",
-  "cardano",
-  "ripple",
-  "polkadot",
-  "dogecoin",
-  "tron",
-  "avalanche-2",
-];
+// Simple request cache to avoid rate limiting
+const cache = new Map<string, { data: unknown; timestamp: number }>();
+const CACHE_TTL = 30_000; // 30 seconds
+const MIN_REQUEST_INTERVAL = 2_000; // 2 seconds between requests
+let lastRequestTime = 0;
+
+async function cachedFetch<T>(url: string): Promise<T> {
+  const cached = cache.get(url);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data as T;
+  }
+
+  const now = Date.now();
+  const timeSinceLastRequest = now - lastRequestTime;
+  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+    await new Promise((resolve) =>
+      setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest)
+    );
+  }
+
+  lastRequestTime = Date.now();
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`CoinGecko API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  cache.set(url, { data, timestamp: Date.now() });
+  return data as T;
+}
 
 /**
  * Fetch real prices for multiple cryptocurrencies
  */
 export async function fetchPrices(): Promise<CryptoData[]> {
-  try {
-    const response = await fetch(
-      `${COINGECKO_API}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=20&price_change_percentage=24h&sparkline=true`
-    );
-
-    if (!response.ok) {
-      throw new Error(`CoinGecko API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Failed to fetch prices:", error);
-    throw error;
-  }
+  return cachedFetch<CryptoData[]>(
+    `${COINGECKO_API}/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=20&price_change_percentage=24h&sparkline=true`
+  );
 }
 
 /**
@@ -63,15 +69,9 @@ export async function fetchPrices(): Promise<CryptoData[]> {
  */
 export async function fetchSinglePrice(coinId: string): Promise<CryptoData | null> {
   try {
-    const response = await fetch(
+    const data = await cachedFetch<CryptoData[]>(
       `${COINGECKO_API}/coins/markets?vs_currency=usd&ids=${coinId}`
     );
-
-    if (!response.ok) {
-      throw new Error(`CoinGecko API error: ${response.status}`);
-    }
-
-    const data = await response.json();
     return data[0] || null;
   } catch (error) {
     console.error(`Failed to fetch price for ${coinId}:`, error);
@@ -81,23 +81,16 @@ export async function fetchSinglePrice(coinId: string): Promise<CryptoData | nul
 
 /**
  * Fetch historical price data (for charts)
- * Note: Free tier has limited historical data
  */
 export async function fetchHistoricalPrice(
   coinId: string,
   days: number = 1
 ): Promise<{ time: number; price: number }[]> {
   try {
-    const response = await fetch(
+    const data = await cachedFetch<{ prices: number[][] }>(
       `${COINGECKO_API}/coins/${coinId}/market_chart?vs_currency=usd&days=${days}`
     );
-
-    if (!response.ok) {
-      throw new Error(`CoinGecko API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.prices || [];
+    return (data.prices || []).map(([time, price]) => ({ time, price }));
   } catch (error) {
     console.error(`Failed to fetch historical data for ${coinId}:`, error);
     return [];
@@ -108,19 +101,15 @@ export async function fetchHistoricalPrice(
  * Get global market data
  */
 export async function fetchGlobalData(): Promise<{
-  total_market_cap_usd: number;
-  total_volume_usd: number;
-  bitcoin_dominance_percentage: number;
+  total_market_cap: Record<string, number>;
+  total_volume: Record<string, number>;
   market_cap_percentage: Record<string, number>;
+  market_cap_change_percentage_24h_usd?: number;
 } | null> {
   try {
-    const response = await fetch(`${COINGECKO_API}/global`);
-
-    if (!response.ok) {
-      throw new Error(`CoinGecko API error: ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await cachedFetch<{ data: ReturnType<typeof fetchGlobalData> extends Promise<infer T> ? T : never }>(
+      `${COINGECKO_API}/global`
+    );
     return data.data;
   } catch (error) {
     console.error("Failed to fetch global data:", error);

@@ -34,7 +34,7 @@ contract MockOracle is Ownable {
         // Initialize with mock prices (in USD with 8 decimals)
         _setPrice("BBC", 100000000);      // $1.00 per BBC
         _setPrice("ETH", 300000000000);  // $3,000 per ETH
-        _setPrice("BTC", 50000000000);   // $50,000 per BTC
+        _setPrice("BTC", 5000000000000);  // $50,000 per BTC
         _setPrice("USD", 100000000);     // $1.00 (base currency)
         _setPrice("EUR", 108000000);     // $1.08 per EUR
         _setPrice("GBP", 127000000);     // $1.27 per GBP
@@ -83,9 +83,8 @@ contract MockOracle is Ownable {
 
         require(fromPrice > 0 && toPrice > 0, "Invalid price data");
 
-        // Convert: amount * fromPrice / toPrice
-        // Adjust for decimal differences (amount has 18, prices have 8)
-        return (amount * fromPrice) / toPrice;
+        // Convert: amount * fromPrice / toPrice (with rounding)
+        return (amount * fromPrice + toPrice / 2) / toPrice;
     }
 
     /**
@@ -169,17 +168,5 @@ contract MockOracle is Ownable {
             timestamp: block.timestamp,
             exists: true
         });
-    }
-
-    /**
-     * @dev Get formatted price for display (scales to 2 decimals)
-     * @param currency The currency symbol
-     * @return The price as a formatted string (for frontend use)
-     */
-    function getFormattedPrice(string memory currency) external view returns (string memory) {
-        uint256 price = prices[currency].price;
-        // Return price / 100000000 as a number
-        // In a real app, this would be formatted differently
-        return ""; // Frontend handles formatting
     }
 }

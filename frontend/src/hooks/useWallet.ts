@@ -1,5 +1,6 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { useWalletStore } from "@/lib/store";
+import { getDeploymentInfo } from "@/lib/blockchain";
 
 /**
  * Hook for wallet connection and basic operations
@@ -14,19 +15,22 @@ export function useWallet() {
     refreshBalances,
     error,
     clearError,
-    loadTokenInfo,
   } = useWalletStore();
+
+  // Use ref for refreshBalances to prevent interval recreation
+  const refreshRef = useRef(refreshBalances);
+  refreshRef.current = refreshBalances;
 
   // Auto-refresh balances every 10 seconds when connected
   useEffect(() => {
     if (!isConnected) return;
 
     const interval = setInterval(() => {
-      refreshBalances();
+      refreshRef.current();
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [isConnected, refreshBalances]);
+  }, [isConnected]);
 
   return {
     address,
@@ -51,15 +55,15 @@ export function useFormattedAddress(): string {
 }
 
 /**
- * Hook for checking if user is owner
+ * Hook for checking if user is the contract owner/deployer
  */
 export function useIsOwner(): boolean {
-  const { address, bbcAddress } = useWalletStore();
+  const { address } = useWalletStore();
 
-  // Hardhat test account #0 is typically the deployer/owner
-  const OWNER_ADDRESS = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+  const deployment = getDeploymentInfo();
+  const ownerAddress = deployment.deployer || "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
 
-  return address?.toLowerCase() === OWNER_ADDRESS.toLowerCase();
+  return address?.toLowerCase() === ownerAddress.toLowerCase();
 }
 
 /**

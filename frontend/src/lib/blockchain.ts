@@ -1,4 +1,8 @@
 import { ethers, BrowserProvider, Contract, formatUnits, parseUnits } from "ethers";
+import deploymentData from "../deployment.json";
+import deploymentTemplate from "../deployment.template.json";
+import type { DeploymentInfo } from "@/types";
+import { getErrorMessage } from "@/types";
 
 // Network configuration
 export const NETWORK_CONFIG = {
@@ -53,19 +57,16 @@ export const ORACLE_ABI = [
 ];
 
 // Load deployment info
-let deploymentInfo: any = null;
+let cachedDeployment: DeploymentInfo | null = null;
 
-export function getDeploymentInfo() {
-  if (deploymentInfo) return deploymentInfo;
+export function getDeploymentInfo(): DeploymentInfo {
+  if (cachedDeployment) return cachedDeployment;
 
-  try {
-    // Try to load from generated file (created by deploy.js)
-    deploymentInfo = require("../deployment.json");
-  } catch {
-    // Fallback to template
-    deploymentInfo = require("../deployment.template.json");
-  }
-  return deploymentInfo;
+  // Use generated deployment.json, fallback to template
+  cachedDeployment = (deploymentData?.contracts
+    ? deploymentData
+    : deploymentTemplate) as DeploymentInfo;
+  return cachedDeployment;
 }
 
 // Get BBC contract instance
@@ -101,15 +102,22 @@ export async function connectWallet(): Promise<{
         method: "wallet_switchEthereumChain",
         params: [{ chainId: NETWORK_CONFIG.chainId }],
       });
-    } catch (switchError: any) {
+    } catch (switchError: unknown) {
       // This error code indicates that the chain has not been added to MetaMask
-      if (switchError.code === 4902) {
+      if (
+        typeof switchError === "object" &&
+        switchError !== null &&
+        "code" in switchError &&
+        (switchError as { code: number }).code === 4902
+      ) {
         await window.ethereum.request({
           method: "wallet_addEthereumChain",
           params: [NETWORK_CONFIG],
         });
       } else {
-        throw switchError;
+        throw new Error(
+          `Please switch to the Hardhat Local network (Chain ID: 31337). ${getErrorMessage(switchError)}`
+        );
       }
     }
   }
@@ -320,6 +328,11 @@ export async function formatTransaction(
 // Type declaration for window.ethereum
 declare global {
   interface Window {
-    ethereum?: any;
+    ethereum?: {
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      on: (event: string, handler: (...args: any[]) => void) => void;
+      removeAllListeners: () => void;
+    };
   }
 }

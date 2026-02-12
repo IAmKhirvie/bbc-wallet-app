@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { useWalletStore, fromWei, type Currency } from "@/lib/store";
 
 /**
@@ -6,7 +6,7 @@ import { useWalletStore, fromWei, type Currency } from "@/lib/store";
  */
 export function useBBCBalance(): string {
   const { bbcBalance } = useWalletStore();
-  return fromWei(bbcBalance);
+  return fromWei(bbcBalance).toFixed(4);
 }
 
 /**
@@ -14,7 +14,7 @@ export function useBBCBalance(): string {
  */
 export function useETHBalance(): string {
   const { ethBalance } = useWalletStore();
-  return fromWei(ethBalance);
+  return fromWei(ethBalance).toFixed(4);
 }
 
 /**
@@ -31,7 +31,7 @@ export function useBalanceInCurrency(balance: bigint, symbol: string): {
     const rate = exchangeRates[symbol] || 1;
 
     if (selectedCurrency === symbol) {
-      return balanceInUnits;
+      return balanceInUnits.toFixed(4);
     }
 
     // Convert through USD as base
@@ -52,35 +52,32 @@ export function useBalanceInCurrency(balance: bigint, symbol: string): {
 export function usePortfolioValue(): {
   value: string;
   currency: Currency;
-  change24h: string;
-  isLoading: boolean;
 } {
   const { bbcBalance, ethBalance, selectedCurrency, exchangeRates } = useWalletStore();
-  const [isLoading, setIsLoading] = useState(false);
 
-  const getConvertedValue = (balance: bigint, symbol: string): number => {
-    const balanceInUnits = fromWei(balance);
-    const rate = exchangeRates[symbol] || 1;
+  return useMemo(() => {
+    const getConvertedValue = (balance: bigint, symbol: string): number => {
+      const balanceInUnits = fromWei(balance);
+      const rate = exchangeRates[symbol] || 1;
 
-    if (selectedCurrency === symbol) {
-      return balanceInUnits;
-    }
+      if (selectedCurrency === symbol) {
+        return balanceInUnits;
+      }
 
-    const inUSD = balanceInUnits * rate;
-    const targetRate = exchangeRates[selectedCurrency] || 1;
-    return inUSD / targetRate;
-  };
+      const inUSD = balanceInUnits * rate;
+      const targetRate = exchangeRates[selectedCurrency] || 1;
+      return inUSD / targetRate;
+    };
 
-  const bbcValue = getConvertedValue(bbcBalance, "BBC");
-  const ethValue = getConvertedValue(ethBalance, "ETH");
-  const totalValue = bbcValue + ethValue;
+    const bbcValue = getConvertedValue(bbcBalance, "BBC");
+    const ethValue = getConvertedValue(ethBalance, "ETH");
+    const totalValue = bbcValue + ethValue;
 
-  return {
-    value: totalValue.toFixed(2),
-    currency: selectedCurrency,
-    change24h: "+2.34", // Mock change for demo
-    isLoading,
-  };
+    return {
+      value: totalValue.toFixed(2),
+      currency: selectedCurrency,
+    };
+  }, [bbcBalance, ethBalance, selectedCurrency, exchangeRates]);
 }
 
 /**
@@ -94,7 +91,7 @@ export function useBalances() {
     const rate = exchangeRates[fromSymbol] || 1;
 
     if (selectedCurrency === fromSymbol) {
-      return balanceInUnits;
+      return balanceInUnits.toFixed(4);
     }
 
     const inUSD = balanceInUnits * rate;
@@ -105,12 +102,12 @@ export function useBalances() {
   return {
     bbc: {
       raw: bbcBalance,
-      formatted: fromWei(bbcBalance),
+      formatted: fromWei(bbcBalance).toFixed(4),
       converted: convertToCurrency(bbcBalance, "BBC"),
     },
     eth: {
       raw: ethBalance,
-      formatted: fromWei(ethBalance),
+      formatted: fromWei(ethBalance).toFixed(4),
       converted: convertToCurrency(ethBalance, "ETH"),
     },
     currency: selectedCurrency,

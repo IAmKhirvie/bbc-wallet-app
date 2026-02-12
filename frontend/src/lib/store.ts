@@ -19,6 +19,7 @@ import {
   formatTransaction,
 } from "./blockchain";
 import { fromWei } from "./utils";
+import { getErrorMessage } from "@/types";
 
 // Currency types
 export type Currency = "USD" | "EUR" | "GBP" | "BBC" | "ETH" | "BTC";
@@ -151,9 +152,9 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         // Refresh data on network change
         get().loadInitialData();
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       set({
-        error: error.message || "Failed to connect wallet",
+        error: getErrorMessage(error),
         isConnecting: false,
       });
     }
@@ -185,8 +186,8 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       ]);
 
       set({ ethBalance: ethBal, bbcBalance: bbcBal });
-    } catch (error: any) {
-      console.error("Failed to refresh balances:", error);
+    } catch (error: unknown) {
+      console.error("Failed to refresh balances:", getErrorMessage(error));
     }
   },
 
@@ -199,17 +200,19 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       const { provider } = await connectWallet();
       const rates: Record<string, number> = {};
 
+      const currentRates = get().exchangeRates;
       for (const currency of supportedCurrencies) {
         try {
           rates[currency] = await getPrice(currency, oracleAddress, provider);
         } catch {
-          rates[currency] = 1.0;
+          // Keep previous rate rather than misleading default
+          rates[currency] = currentRates[currency] || 1.0;
         }
       }
 
       set({ exchangeRates: rates });
-    } catch (error: any) {
-      console.error("Failed to refresh rates:", error);
+    } catch (error: unknown) {
+      console.error("Failed to refresh rates:", getErrorMessage(error));
     }
   },
 
@@ -236,17 +239,18 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       // Send transaction
       const receipt = await sendBBC(to, amount, bbcAddress, signer);
 
-      // Update transaction record
+      // Update transaction record with confirmed status
       pendingTx.hash = receipt.hash;
       pendingTx.gasUsed = receipt.gasUsed?.toString();
+      pendingTx.status = receipt.status === 1 ? "success" : "failed";
       addTransaction(pendingTx);
 
       // Refresh balances
       await get().refreshBalances();
 
       return receipt.hash;
-    } catch (error: any) {
-      const errorMsg = error.message || "Failed to send BBC";
+    } catch (error: unknown) {
+      const errorMsg = getErrorMessage(error);
       set({ error: errorMsg });
       throw error;
     }
@@ -297,8 +301,8 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
         bbcAddress: deployment.contracts.BigBlackCoin,
         oracleAddress: deployment.contracts.MockOracle,
       });
-    } catch (error: any) {
-      console.error("Failed to load token info:", error);
+    } catch (error: unknown) {
+      console.error("Failed to load token info:", getErrorMessage(error));
     }
   },
 
@@ -315,32 +319,50 @@ export const useWalletStore = create<WalletStore>((set, get) => ({
       ]);
 
       set({ estimatedGas: gasEstimate, gasPrice: gasPriceVal });
-    } catch (error: any) {
-      console.error("Failed to estimate gas:", error);
+    } catch (error: unknown) {
+      console.error("Failed to estimate gas:", getErrorMessage(error));
     }
   },
 
-  // Add transaction to history
+  // Add transaction to history (persisted to localStorage)
   addTransaction: (tx: Transaction) => {
-    set((state) => ({
-      transactions: [tx, ...state.transactions].slice(0, 50), // Keep last 50
-    }));
+    set((state) => {
+      const updated = [tx, ...state.transactions].slice(0, 50);
+      try {
+        localStorage.setItem("bbc-tx-history", JSON.stringify(updated));
+      } catch {}
+      return { transactions: updated };
+    });
   },
 
-  // Update transaction status
+  // Update transaction status (persisted to localStorage)
   updateTransactionStatus: (hash: string, status: Transaction["status"]) => {
-    set((state) => ({
-      transactions: state.transactions.map((tx) =>
+    set((state) => {
+      const updated = state.transactions.map((tx) =>
         tx.hash === hash ? { ...tx, status } : tx
-      ),
-      pendingTransactions: new Set(
-        [...state.pendingTransactions].filter((h) => h !== hash)
-      ),
-    }));
+      );
+      try {
+        localStorage.setItem("bbc-tx-history", JSON.stringify(updated));
+      } catch {}
+      return {
+        transactions: updated,
+        pendingTransactions: new Set(
+          [...state.pendingTransactions].filter((h) => h !== hash)
+        ),
+      };
+    });
   },
 
   // Load all initial data
   loadInitialData: async () => {
+    // Restore persisted transactions
+    try {
+      const savedTxs = localStorage.getItem("bbc-tx-history");
+      if (savedTxs) {
+        set({ transactions: JSON.parse(savedTxs) });
+      }
+    } catch {}
+
     await Promise.all([
       get().refreshBalances(),
       get().refreshExchangeRates(),

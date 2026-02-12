@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useWalletStore } from "@/lib/store";
-import { Wallet, LogOut } from "lucide-react";
+import { Wallet, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface ConnectWalletButtonProps {
@@ -24,15 +24,25 @@ export function ConnectWalletButton({ className }: ConnectWalletButtonProps) {
     <Button
       onClick={handleClick}
       disabled={isConnecting}
-      className={className}
+      className={cn(
+        isConnected
+          ? ""
+          : "bg-gradient-to-r from-amber-500 to-yellow-500 text-black font-semibold hover:from-amber-400 hover:to-yellow-400 shadow-lg shadow-amber-500/20",
+        className
+      )}
       variant={isConnected ? "outline" : "default"}
     >
       {isConnecting ? (
-        "Connecting..."
+        <>
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          Connecting...
+        </>
       ) : isConnected ? (
         <>
           <Wallet className="h-4 w-4 mr-2" />
-          {address?.slice(0, 6)}...{address?.slice(-4)}
+          <span className="font-mono text-sm">
+            {address?.slice(0, 6)}...{address?.slice(-4)}
+          </span>
         </>
       ) : (
         <>

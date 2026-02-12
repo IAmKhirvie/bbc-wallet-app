@@ -37,9 +37,9 @@ describe("BigBlackCoin (BBC)", function () {
 
     it("Should return correct token info", async function () {
       const info = await bbc.getTokenInfo();
-      expect(info.name).to.equal("BigBlackCoin");
-      expect(info.symbol).to.equal("BBC");
-      expect(info.decimals_).to.equal(18);
+      expect(info.tokenName).to.equal("BigBlackCoin");
+      expect(info.tokenSymbol).to.equal("BBC");
+      expect(info.tokenDecimals).to.equal(18);
       expect(info.totalSupply_).to.equal(INITIAL_SUPPLY);
     });
   });

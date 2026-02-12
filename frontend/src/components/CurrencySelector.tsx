@@ -1,8 +1,6 @@
 "use client";
 
-import { Select } from "@/components/ui/select";
 import { useWalletStore, type Currency } from "@/lib/store";
-import { DollarSign, Coins, PoundSterling, Euro } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CurrencySelectorProps {
@@ -10,13 +8,13 @@ interface CurrencySelectorProps {
   label?: string;
 }
 
-const currencies: { value: Currency; label: string; icon: React.ReactNode }[] = [
-  { value: "USD", label: "USD", icon: <DollarSign className="h-4 w-4" /> },
-  { value: "EUR", label: "EUR", icon: <Euro className="h-4 w-4" /> },
-  { value: "GBP", label: "GBP", icon: <PoundSterling className="h-4 w-4" /> },
-  { value: "BBC", label: "BBC", icon: <Coins className="h-4 w-4 text-yellow-500" /> },
-  { value: "ETH", label: "ETH", icon: <Coins className="h-4 w-4 text-blue-500" /> },
-  { value: "BTC", label: "BTC", icon: <Coins className="h-4 w-4 text-orange-500" /> },
+const currencies: { value: Currency; label: string }[] = [
+  { value: "USD", label: "USD" },
+  { value: "EUR", label: "EUR" },
+  { value: "GBP", label: "GBP" },
+  { value: "BBC", label: "BBC" },
+  { value: "ETH", label: "ETH" },
+  { value: "BTC", label: "BTC" },
 ];
 
 export function CurrencySelector({ className, label = "Display Currency" }: CurrencySelectorProps) {
@@ -24,18 +22,24 @@ export function CurrencySelector({ className, label = "Display Currency" }: Curr
 
   return (
     <div className={cn("flex items-center gap-2", className)}>
-      {label && <label className="text-sm font-medium">{label}:</label>}
-      <Select
+      {label && <label className="text-xs font-medium text-muted-foreground">{label}:</label>}
+      <select
         value={selectedCurrency}
         onChange={(e) => setSelectedCurrency(e.target.value as Currency)}
-        className="w-32"
+        className={cn(
+          "h-8 rounded-md px-2.5 text-xs font-medium",
+          "bg-white/5 border border-white/[0.08]",
+          "text-foreground",
+          "focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/30",
+          "transition-colors cursor-pointer"
+        )}
       >
         {currencies.map((currency) => (
-          <option key={currency.value} value={currency.value}>
+          <option key={currency.value} value={currency.value} className="bg-card text-foreground">
             {currency.label}
           </option>
         ))}
-      </Select>
+      </select>
     </div>
   );
 }

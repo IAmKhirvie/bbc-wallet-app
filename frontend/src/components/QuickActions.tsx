@@ -1,8 +1,8 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
-import { Send, Download, ArrowRightLeft, History } from "lucide-react";
+import { Send, Download, History } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface QuickActionsProps {
   className?: string;
@@ -13,63 +13,43 @@ const actions = [
     label: "Send",
     href: "/wallet/send",
     icon: Send,
-    description: "Transfer BBC to another address",
   },
   {
     label: "Receive",
     href: "/wallet/receive",
     icon: Download,
-    description: "Get your wallet address",
-  },
-  {
-    label: "Swap",
-    href: "/wallet/swap",
-    icon: ArrowRightLeft,
-    description: "Swap currencies",
-    disabled: true,
   },
   {
     label: "History",
     href: "/transactions",
     icon: History,
-    description: "View transaction history",
   },
 ];
 
 export function QuickActions({ className }: QuickActionsProps) {
   return (
-    <div className={className}>
-      <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-      <div className="grid grid-cols-2 gap-3">
-        {actions.map((action) => {
-          const Icon = action.icon;
-          const content = (
-            <>
-              <Icon className="h-6 w-6 mb-2 mx-auto" />
-              <span className="font-medium">{action.label}</span>
-              <span className="text-xs text-muted-foreground mt-1">
-                {action.description}
-              </span>
-            </>
-          );
-
-          return (
-            <div key={action.label}>
-              {action.disabled ? (
-                <div className="flex flex-col items-center justify-center p-4 rounded-lg border border-dashed border-muted-foreground/25 text-muted-foreground cursor-not-allowed opacity-50">
-                  {content}
-                </div>
-              ) : (
-                <Link href={action.href}>
-                  <div className="flex flex-col items-center justify-center p-4 rounded-lg border border-border bg-card hover:bg-accent hover:text-accent-foreground transition-colors cursor-pointer h-full">
-                    {content}
-                  </div>
-                </Link>
+    <div className={cn("flex gap-6 justify-center py-4", className)}>
+      {actions.map((action) => {
+        const Icon = action.icon;
+        return (
+          <Link key={action.label} href={action.href} className="group flex flex-col items-center gap-2">
+            <div
+              className={cn(
+                "w-14 h-14 rounded-full flex items-center justify-center",
+                "bg-gradient-to-br from-amber-500/20 to-amber-500/5",
+                "border border-amber-500/20",
+                "transition-all duration-200",
+                "group-hover:scale-110 group-hover:shadow-lg group-hover:shadow-amber-500/20"
               )}
+            >
+              <Icon className="h-6 w-6 text-amber-400" />
             </div>
-          );
-        })}
-      </div>
+            <span className="text-xs font-medium text-muted-foreground group-hover:text-amber-400 transition-colors">
+              {action.label}
+            </span>
+          </Link>
+        );
+      })}
     </div>
   );
 }

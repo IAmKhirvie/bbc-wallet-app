@@ -1,4 +1,5 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useMemo } from "react";
+import { ethers } from "ethers";
 import { useWalletStore, type Transaction } from "@/lib/store";
 import { timeAgo } from "@/lib/utils";
 
@@ -14,25 +15,30 @@ export function useTransactions() {
     address,
   } = useWalletStore();
 
-  // Watch pending transactions
+  // Poll pending transactions against the actual blockchain
   useEffect(() => {
-    if (pendingTransactions.size === 0) return;
+    if (pendingTransactions.size === 0 || !window.ethereum) return;
 
-    const checkPendingTransactions = async () => {
+    const checkPending = async () => {
+      const provider = new ethers.BrowserProvider(window.ethereum!);
       for (const hash of pendingTransactions) {
         try {
-          // In a real app, you'd check the transaction status here
-          // For now, we'll just mark as success after a delay
-          setTimeout(() => {
-            updateTransactionStatus(hash, "success");
-          }, 3000);
+          const receipt = await provider.getTransactionReceipt(hash);
+          if (receipt) {
+            updateTransactionStatus(
+              hash,
+              receipt.status === 1 ? "success" : "failed"
+            );
+          }
         } catch (error) {
-          console.error("Failed to check transaction:", error);
+          console.error("Failed to check transaction:", hash, error);
         }
       }
     };
 
-    checkPendingTransactions();
+    checkPending();
+    const interval = setInterval(checkPending, 5000);
+    return () => clearInterval(interval);
   }, [pendingTransactions, updateTransactionStatus]);
 
   /**
@@ -52,8 +58,9 @@ export function useTransactions() {
   /**
    * Get transactions sorted by timestamp
    */
-  const sortedTransactions = [...transactions].sort(
-    (a, b) => b.timestamp - a.timestamp
+  const sortedTransactions = useMemo(
+    () => [...transactions].sort((a, b) => b.timestamp - a.timestamp),
+    [transactions]
   );
 
   /**
@@ -69,7 +76,10 @@ export function useTransactions() {
   /**
    * Get recent transactions (last 5)
    */
-  const recentTransactions = sortedTransactions.slice(0, 5);
+  const recentTransactions = useMemo(
+    () => sortedTransactions.slice(0, 5),
+    [sortedTransactions]
+  );
 
   return {
     transactions: sortedTransactions,
@@ -87,27 +97,32 @@ export function useTransactions() {
 export function useTransactionDisplay() {
   const { transactions } = useWalletStore();
 
-  return transactions.map((tx) => ({
-    ...tx,
-    timeAgo: timeAgo(tx.timestamp),
-    amountFormatted: parseFloat(tx.amount).toFixed(4),
-  }));
+  return useMemo(
+    () =>
+      transactions.map((tx) => ({
+        ...tx,
+        timeAgo: timeAgo(tx.timestamp),
+        amountFormatted: parseFloat(tx.amount).toFixed(4),
+      })),
+    [transactions]
+  );
 }
 
 /**
  * Hook for transaction statistics
  */
 export function useTransactionStats() {
-  const { transactions, address } = useWalletStore();
+  const { transactions } = useWalletStore();
 
-  const stats = {
-    total: transactions.length,
-    sent: transactions.filter((tx) => tx.type === "send").length,
-    received: transactions.filter((tx) => tx.type === "receive").length,
-    pending: transactions.filter((tx) => tx.status === "pending").length,
-    successful: transactions.filter((tx) => tx.status === "success").length,
-    failed: transactions.filter((tx) => tx.status === "failed").length,
-  };
-
-  return stats;
+  return useMemo(
+    () => ({
+      total: transactions.length,
+      sent: transactions.filter((tx) => tx.type === "send").length,
+      received: transactions.filter((tx) => tx.type === "receive").length,
+      pending: transactions.filter((tx) => tx.status === "pending").length,
+      successful: transactions.filter((tx) => tx.status === "success").length,
+      failed: transactions.filter((tx) => tx.status === "failed").length,
+    }),
+    [transactions]
+  );
 }
