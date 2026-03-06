@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Wallet, Home, Activity, Settings, TrendingUp } from "lucide-react";
+import { Wallet, Home, Activity, Settings, TrendingUp, Info } from "lucide-react";
 import { ConnectWalletButton } from "@/components/ConnectWalletButton";
 import { NetworkStatus } from "@/components/NetworkStatus";
 import { CurrencySelector } from "@/components/CurrencySelector";
@@ -13,6 +13,7 @@ const navItems = [
   { href: "/wallet", label: "Wallet", icon: Wallet },
   { href: "/market", label: "Market", icon: TrendingUp },
   { href: "/transactions", label: "Activity", icon: Activity },
+  { href: "/about", label: "About", icon: Info },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
